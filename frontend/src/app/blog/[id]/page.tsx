@@ -11,6 +11,8 @@ import {
   useAppData,
   User,
 } from "@/context/AppContext";
+import { authPost,authDelete } from "@/lib/axios-helper";
+// import { authPost, authDelete } from "@/lib/axios-helpers";
 import axios from "axios";
 import {
   Bookmark,
@@ -23,7 +25,6 @@ import {
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
-import Cookies from "js-cookie";
 import toast from "react-hot-toast";
 
 interface Comment {
@@ -47,6 +48,7 @@ const BlogPage = () => {
   async function fetchComment() {
     try {
       setLoading(true);
+      // This is a public endpoint, no auth needed
       const { data } = await axios.get(`${blog_service}/api/v1/comment/${id}`);
       setComments(data);
     } catch (error) {
@@ -65,15 +67,10 @@ const BlogPage = () => {
   async function addComment() {
     try {
       setLoading(true);
-      const token = Cookies.get("token");
-      const { data } = await axios.post(
+      // Use the helper function for authenticated POST
+      const { data } = await authPost(
         `${blog_service}/api/v1/comment/${id}`,
-        { comment },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { comment }
       );
       toast.success(data.message);
       setComment("");
@@ -88,6 +85,7 @@ const BlogPage = () => {
   async function fetchSingleBlog() {
     try {
       setLoading(true);
+      // This is a public endpoint, no auth needed
       const { data } = await axios.get(`${blog_service}/api/v1/blog/${id}`);
       setBlog(data.blog);
       setAuthor(data.author);
@@ -98,18 +96,13 @@ const BlogPage = () => {
     }
   }
 
-  const deleteComment = async (id: string) => {
+  const deleteComment = async (commentId: string) => {
     if (confirm("Are you sure you want to delete this comment")) {
       try {
         setLoading(true);
-        const token = Cookies.get("token");
-        const { data } = await axios.delete(
-          `${blog_service}/api/v1/comment/${id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
+        // Use the helper function for authenticated DELETE
+        const { data } = await authDelete(
+          `${blog_service}/api/v1/comment/${commentId}`
         );
         toast.success(data.message);
         fetchComment();
@@ -126,22 +119,15 @@ const BlogPage = () => {
     if (confirm("Are you sure you want to delete this blog")) {
       try {
         setLoading(true);
-        const token = Cookies.get("token");
-        const { data } = await axios.delete(
-          `${author_service}/api/v1/blog/${id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        // Use the helper function for authenticated DELETE
+        const { data } = await authDelete(`${author_service}/api/v1/blog/${id}`);
         toast.success(data.message);
         router.push("/blogs");
         setTimeout(() => {
           fetchBlogs();
         }, 4000);
       } catch (error) {
-        toast.error("Problem while deleting comment");
+        toast.error("Problem while deleting blog");
         console.log(error);
       } finally {
         setLoading(false);
@@ -160,18 +146,10 @@ const BlogPage = () => {
   }, [savedBlogs, id]);
 
   async function saveBlog() {
-    const token = Cookies.get("token");
     try {
       setLoading(true);
-      const { data } = await axios.post(
-        `${blog_service}/api/v1/save/${id}`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      // Use the helper function for authenticated POST
+      const { data } = await authPost(`${blog_service}/api/v1/save/${id}`, {});
       toast.success(data.message);
       setSaved(!saved);
       getSavedBlogs();

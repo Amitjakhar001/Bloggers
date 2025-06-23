@@ -1,6 +1,7 @@
 import express from "express";
 import {
   getUserProfile,
+  googleLogin,
   loginUser,
   myProfile,
   updateProfilePic,
@@ -16,5 +17,6 @@ router.get("/me", isAuth, myProfile);
 router.get("/user/:id", getUserProfile);
 router.post("/user/update", isAuth, updateUser);
 router.post("/user/update/pic", isAuth, uploadFile, updateProfilePic);
+router.post("/google-login", googleLogin);
 
 export default router;

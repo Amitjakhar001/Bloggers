@@ -7,11 +7,10 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import Cookies from "js-cookie";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import { get } from "http";
+import Cookies from "js-cookie";
 
 export const user_service = "http://localhost:5000";
 export const author_service = "http://localhost:5001";
@@ -89,6 +88,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     try {
       const token = Cookies.get("token");
 
+      // If no token exists, just set loading to false
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       const { data } = await axios.get(`${user_service}/api/v1/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -98,14 +103,18 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       setUser(data);
       setIsAuth(true);
       setLoading(false);
-    } catch (error) {
-      console.log(error);
+    } catch (error: any) {
+      console.log("Error fetching user:", error);
+
+      // Clear invalid token and reset state
+      Cookies.remove("token");
+      setUser(null);
+      setIsAuth(false);
       setLoading(false);
     }
   }
 
   const [blogLoading, setBlogLoading] = useState(true);
-
   const [blogs, setBlogs] = useState<Blog[] | null>(null);
   const [category, setCategory] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -119,7 +128,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
       setBlogs(data);
     } catch (error) {
-      console.log(error);
+      console.log("Error fetching blogs:", error);
     } finally {
       setBlogLoading(false);
     }
@@ -128,8 +137,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [savedBlogs, setSavedBlogs] = useState<SavedBlogType[] | null>(null);
 
   async function getSavedBlogs() {
-    const token = Cookies.get("token");
     try {
+      const token = Cookies.get("token");
+
+      // Only fetch if user is authenticated and token exists
+      if (!token || !isAuth) {
+        return;
+      }
+
       const { data } = await axios.get(
         `${blog_service}/api/v1/blog/saved/all`,
         {
@@ -139,8 +154,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         }
       );
       setSavedBlogs(data);
-    } catch (error) {
-      console.log(error);
+    } catch (error: any) {
+      console.log("Error fetching saved blogs:", error);
+
+      // If auth error, clear invalid token
+      if (error.response?.status === 401) {
+        Cookies.remove("token");
+        setUser(null);
+        setIsAuth(false);
+        setSavedBlogs(null);
+      }
     }
   }
 
@@ -148,18 +171,27 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     Cookies.remove("token");
     setUser(null);
     setIsAuth(false);
-
-    toast.success("user Logged Out");
+    setSavedBlogs(null);
+    toast.success("User Logged Out");
   }
 
+  // Initial load - only fetch user if token exists
   useEffect(() => {
     fetchUser();
-    getSavedBlogs();
   }, []);
 
+  // Fetch saved blogs when auth status changes
+  useEffect(() => {
+    if (isAuth) {
+      getSavedBlogs();
+    }
+  }, [isAuth]);
+
+  // Fetch blogs when search/category changes
   useEffect(() => {
     fetchBlogs();
   }, [searchQuery, category]);
+
   return (
     <AppContext.Provider
       value={{

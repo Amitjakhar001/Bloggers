@@ -135,3 +135,45 @@ export const updateProfilePic = TryCatch(
     });
   }
 );
+
+
+
+
+export const googleLogin = TryCatch(async (req, res) => {
+  const { credential } = req.body;
+
+  // Decode the JWT credential
+  const base64Url = credential.split(".")[1];
+  const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+  const jsonPayload = decodeURIComponent(
+    Buffer.from(base64, "base64")
+      .toString()
+      .split("")
+      .map(function (c) {
+        return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+      })
+      .join("")
+  );
+
+  const { email, name, picture } = JSON.parse(jsonPayload);
+
+  let user = await User.findOne({ email });
+
+  if (!user) {
+    user = await User.create({
+      name,
+      email,
+      image: picture,
+    });
+  }
+
+  const token = jwt.sign({ user }, process.env.JWT_SEC as string, {
+    expiresIn: "5d",
+  });
+
+  res.status(200).json({
+    message: "Login success",
+    token,
+    user,
+  });
+});
